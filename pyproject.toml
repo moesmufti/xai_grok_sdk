@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=75.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xai-grok-sdk"
+version = "0.0.2"
+description = "Lightweight xAI SDK with minimal dependencies"
+dependencies = [
+    "requests>=2.32.3",
+]
+long_description = { file = "README.md", content-type = "text/markdown" }
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["xai_grok_sdk"]
