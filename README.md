@@ -12,8 +12,11 @@ pip install xai-grok-sdk
 
 - Simple and intuitive interface for x.AI API interactions
 - Support for chat completions with the latest x.AI models
-- Built-in function calling capabilities
+- Built-in function calling capabilities with support for auto, required, and none modes
 - Minimal dependencies (only requires `requests`)
+- Secure API key handling
+- Customizable base URL for API endpoints
+- Comprehensive error handling for API responses
 
 ## Quick Start
 
@@ -62,7 +65,8 @@ xai = XAI(
 response = xai.invoke(
     messages=[
         {"role": "user", "content": "What's the weather like in San Francisco?"}
-    ]
+    ],
+    tool_choice="auto"  # Can be 'auto', 'required', 'none', or specific function
 )
 ```
 
@@ -88,7 +92,7 @@ Run a conversation with the model.
 
 ## License
 
-[License information here]
+This project is licensed under the terms included in the LICENSE file.
 
 ## Contributing
 
