@@ -9,7 +9,6 @@ description = "Lightweight xAI SDK with minimal dependencies"
 dependencies = [
     "requests>=2.32.3",
 ]
-long_description = { file = "README.md", content-type = "text/markdown" }
 
 [tool.setuptools]
 package-dir = {"" = "src"}
