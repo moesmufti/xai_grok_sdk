@@ -45,7 +45,9 @@ response = xai.invoke(
     ]
 )
 
-print(response["message"])
+response_message = response.choices[0].message
+print(response_message)
+# Response: Message(role='assistant', content="Hello! I can help you with a wide range of tasks and questions. Whether you need assistance with information, problem-solving, learning something new, or just want to have a conversation, I'm here to help. What specifically would you like assistance with today?", tool_calls=None, tool_results=None, refusal=None)
 ```
 
 ## Parameters
@@ -109,27 +111,33 @@ tools = [
     }
 ]
 
-# Implement the function
+# Implement the tool function
 def get_weather(location: str) -> str:
     return f"The weather in {location} is sunny."
 
 # Initialize the client with tools and function implementations
-xai = XAI(
-    api_key="your_api_key",
+llm = XAI(
+    api_key=api_key,
     model="grok-2-1212",
     tools=tools,
-    function_map={"get_weather": get_weather}  # Map function names to implementations
+    function_map={"get_weather": get_weather}
 )
 
-# Make a request that might trigger function calling
-response = xai.invoke(
+# Make a request that will use function calling
+response = llm.invoke(
     messages=[
-        {"role": "user", "content": "What's the weather like in San Francisco?"}
+        {"role": "user", "content": "What is the weather in San Francisco?"},
     ],
-    tool_choice="auto"  # Can be 'auto', 'required', 'none', or a specific function
+    tool_choice="auto"  # Can be "auto", "required", or "none"
 )
 
-print(response["message"])
+response_message = response.choices[0].message
+print(response_message)
+# Response: Message(role='assistant', content='I am retrieving the weather for San Francisco.', tool_calls=[{'id': '0', 'function': {'name': 'get_weather', 'arguments': '{"location":"San Francisco, CA"}'}, 'type': 'function'}], tool_results=[{'tool_call_id': '0', 'role': 'tool', 'name': 'get_weather', 'content': 'The weather in San Francisco, CA is sunny.'}], refusal=None)
+
+tool_result_content = response_message.tool_results[0].content
+print(tool_result_content)
+# Response: The weather in San Francisco, CA is sunny.
 ```
 
 The SDK supports various function calling modes through the `tool_choice` parameter:
@@ -144,37 +152,242 @@ The SDK supports various function calling modes through the `tool_choice` parame
 
 For more details, see the [xAI Function Calling Guide](https://docs.x.ai/docs/guides/function-calling) and the [API Reference](https://docs.x.ai/api/endpoints#chat-completions).
 
-> **Note**: Currently, using `"required"` or specific function calls may produce unexpected outputs. It is recommended to use either `"auto"` or `"none"` for more reliable results.
-
 ### Required Parameters for Function Calling
 
 When using function calling, you need to provide:
 
 - `tools`: List of tool definitions with their schemas
-- `function_map`: Dictionary mapping function names to their actual implementations
 
-> **Note**: The `function_map` parameter is required when tools are provided. Each tool name must have a corresponding implementation in the function map.
+### Function Map
+
+The `function_map` optional parameter maps tool names to their Python implementations. This allows you to actually invoke the function and append its result to the response. Each function in the map must:
+
+- Have a name matching a tool definition
+- Accept the parameters specified in the tool's JSON Schema
+- Return a value that can be converted to a string
+
+> **Note**: The `function_map` parameter is not required when tools are provided. However, when omitted, only the tool call with the parameters used by the model will be included in the response.
 
 ## API Reference
 
 ### XAI Class
 
-#### `__init__(api_key: str, model: str, tools: Optional[List[Dict[str, Any]]] = None, function_map: Optional[Dict[str, Any]] = None)`
+The main class for interacting with the xAI API.
 
-Initialize the XAI client.
+#### Constructor Parameters
 
-- `api_key`: Your xAI API key
-- `model`: The model to use for chat completions
-- `tools`: Optional list of tools available for the model to use
-- `function_map`: Optional dictionary mapping function names to their implementations
+- `api_key` (str, required): Your xAI API key
+- `model` (ModelType, required): Model to use ("grok-2-1212" or "grok-beta")
+- `tools` (List[Dict[str, Any]], optional): List of available tools
+- `function_map` (Dict[str, Callable], optional): Map of function names to implementations
 
-#### `invoke(messages: List[Dict[str, Any]], tool_choice: str = "auto") -> Dict[str, Any]`
+#### Methods
 
-Run a conversation with the model.
+##### invoke
 
-- `messages`: List of conversation messages
-- `tool_choice`: Function calling mode ('auto', 'required', 'none', or specific function)
-- Returns: Dictionary containing the model's response
+Makes a chat completion request to the xAI API.
+
+```python
+def invoke(
+    messages: List[Dict[str, Any]], # REQUIRED
+    frequency_penalty: Optional[float] = None,  # Range: -2.0 to 2.0
+    logit_bias: Optional[Dict[str, float]] = None,
+    logprobs: Optional[bool] = None,
+    max_tokens: Optional[int] = None,
+    n: Optional[int] = None,
+    presence_penalty: Optional[float] = None,  # Range: -2.0 to 2.0
+    response_format: Optional[Any] = None,
+    seed: Optional[int] = None,
+    stop: Optional[List[str]] = None,
+    stream: Optional[bool] = None,
+    stream_options: Optional[Any] = None,
+    temperature: Optional[float] = None,  # Range: 0 to 2
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+    top_logprobs: Optional[int] = None,  # Range: 0 to 20
+    top_p: Optional[float] = None,  # Range: 0 to 1
+    user: Optional[str] = None
+) -> ChatCompletionResponse
+```
+
+### Response Models
+
+The SDK uses several dataclasses to represent the API response structure:
+
+#### Message
+
+Represents a message in the chat completion response.
+
+```python
+@dataclass
+class Message:
+    role: str                                      # Role of the message sender (e.g., "assistant", "user")
+    content: str                                   # Content of the message
+    tool_calls: Optional[List[ToolCall]] = None    # List of tool calls made by the model
+    tool_results: Optional[List[ToolResult]] = None # Results from tool executions
+    refusal: Optional[Any] = None                  # Information about message refusal if applicable
+```
+
+#### ToolCall
+
+Represents a tool call in the chat completion response.
+
+```python
+@dataclass
+class ToolCall:
+    id: str          # Unique identifier for the tool call
+    function: Function # Function details
+    type: str        # Type of the tool call
+```
+
+#### Function
+
+Represents a function in a tool call.
+
+```python
+@dataclass
+class Function:
+    name: str                # Name of the function
+    arguments: Dict[str, Any] # Arguments passed to the function
+```
+
+#### ToolResult
+
+Represents a tool result in the chat completion response.
+
+```python
+@dataclass
+class ToolResult:
+    tool_call_id: str  # ID of the associated tool call
+    role: str          # Role (typically "tool")
+    name: str          # Name of the tool
+    content: Any       # Result content from the tool execution
+```
+
+#### ChatCompletionResponse
+
+The main response object returned by the `invoke` method.
+
+```python
+@dataclass
+class ChatCompletionResponse:
+    id: str                    # Unique identifier for the completion
+    choices: List[Choice]      # List of completion choices
+    created: int              # Unix timestamp of creation
+    model: str                # Model used for completion
+    object: str               # Object type ("chat.completion")
+    system_fingerprint: str   # System fingerprint
+    usage: Optional[Usage]    # Token usage statistics
+```
+
+#### Choice
+
+Represents a single completion choice in the response.
+
+```python
+@dataclass
+class Choice:
+    index: int                # Index of this choice
+    message: Message          # The generated message
+    finish_reason: Optional[str]  # Why the model stopped generating
+    logprobs: Optional[Dict[str, Any]]  # Log probabilities if requested
+```
+
+#### Usage
+
+Contains token usage statistics for the request.
+
+```python
+@dataclass
+class Usage:
+    prompt_tokens: int        # Tokens in the prompt
+    completion_tokens: int    # Tokens in the completion
+    total_tokens: int         # Total tokens used
+    prompt_tokens_details: Optional[Dict[str, Any]]  # Detailed token usage
+```
+
+### Example Response
+
+Here's an example of a typical response when using function calling:
+
+```python
+ChatCompletionResponse(
+    id='...',
+    choices=[
+        Choice(
+            index=0,
+            message=Message(
+                role='assistant',
+                content='I am retrieving the weather for San Francisco.',
+                tool_calls=[{
+                    'id': '0',
+                    'function': {
+                        'name': 'get_weather',
+                        'arguments': '{"location":"San Francisco, CA"}'
+                    },
+                    'type': 'function'
+                }],
+                tool_results=[{
+                    'tool_call_id': '0',
+                    'role': 'tool',
+                    'name': 'get_weather',
+                    'content': 'The weather in San Francisco, CA is sunny.'
+                }],
+                refusal=None
+            ),
+            finish_reason='stop',
+            logprobs=None
+        )
+    ],
+    created=1703...,
+    model='grok-2-1212',
+    object='chat.completion',
+    system_fingerprint='...',
+    usage=Usage(
+        prompt_tokens=50,
+        completion_tokens=20,
+        total_tokens=70,
+        prompt_tokens_details=None
+    )
+)
+```
+
+## Security Best Practices
+
+When using this SDK, follow these security best practices:
+
+1. **API Key Management**
+
+   - Never hardcode your API key directly in your code
+   - Use environment variables to store your API key:
+
+     ```python
+     import os
+
+     api_key = os.getenv("XAI_API_KEY")
+     xai = XAI(api_key=api_key, model="grok-2-1212")
+     ```
+
+   - Consider using a secure secrets management service in production
+   - Keep your API key private and never commit it to version control
+
+2. **Environment Variables**
+
+   - Create a `.env` file for local development (and add it to `.gitignore`)
+   - Example `.env` file:
+     ```
+     XAI_API_KEY=your_api_key_here
+     ```
+
+3. **Request Validation**
+   - The SDK automatically validates all parameters before making API calls
+   - Always handle potential exceptions in your code:
+     ```python
+     try:
+         response = xai.invoke(messages=[{"role": "user", "content": "Hello"}])
+     except Exception as e:
+         # Handle the error appropriately
+         print(f"An error occurred: {e}")
+     ```
 
 ## License
 

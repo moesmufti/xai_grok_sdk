@@ -2,10 +2,18 @@
 
 import json
 import requests
-from typing import List, Dict, Any, Optional, Callable, Union, Literal
-
-# Supported xAI models
-ModelType = Literal["grok-2-1212", "grok-beta"]
+from typing import List, Dict, Any, Optional, Callable, Union
+from xai_grok_sdk.models import (
+    ModelType,
+    ChatCompletionRequest,
+    Message,
+    Usage,
+    Choice,
+    ChatCompletionResponse,
+    ToolCall,
+    ToolResult,
+    Function,
+)
 
 
 class XAI:
@@ -36,22 +44,18 @@ class XAI:
         self.function_map = {}
 
         if tools:
-            if not function_map:
-                raise ValueError(
-                    "function_map must be provided when tools are specified"
-                )
-
             for tool in tools:
                 if "name" not in tool:
                     raise ValueError("Each tool must have a 'name' field")
-
-                func_name = tool["name"]
-                if func_name not in function_map:
-                    raise ValueError(
-                        f"Function '{func_name}' not found in function_map"
-                    )
                 self.tools.append({"type": "function", "function": tool})
-                self.function_map[func_name] = function_map[func_name]
+
+                if function_map:
+                    func_name = tool["name"]
+                    if func_name not in function_map:
+                        raise ValueError(
+                            f"Function '{func_name}' not found in function_map"
+                        )
+                    self.function_map[func_name] = function_map[func_name]
 
     def _make_api_call(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Make an API call to XAI."""
@@ -68,23 +72,23 @@ class XAI:
     def invoke(
         self,
         messages: List[Dict[str, Any]],
-        frequency_penalty: float = 0,
-        logit_bias: Dict[str, float] = None,
-        logprobs: bool = False,
-        max_tokens: int = 0,
-        n: int = 0,
-        presence_penalty: float = 0,
-        response_format: Optional[Dict[str, str]] = None,
-        seed: int = 0,
-        stop: Optional[Union[str, List[str]]] = None,
-        stream: bool = False,
-        stream_options: Optional[Dict[str, Any]] = None,
-        temperature: float = 0,
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
-        top_logprobs: int = 0,
-        top_p: float = 0,
-        user: str = "",
-    ) -> Dict[str, Any]:
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[Dict[int, float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
+        response_format: Optional[Any] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[Any]] = None,
+        stream: Optional[bool] = None,
+        stream_options: Optional[Any] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        top_logprobs: Optional[int] = None,
+        top_p: Optional[float] = None,
+        user: Optional[str] = None,
+    ) -> ChatCompletionResponse:
         """
         Run a conversation with the model.
 
@@ -108,50 +112,30 @@ class XAI:
             user: End-user identifier
 
         Returns:
-            Dict containing the model's response
+            Choice containing the model's response
         """
         # Prepare initial payload
-        payload = {
-            "model": self.model,
-            "messages": messages,
-        }
-
-        # Add optional parameters if they differ from defaults
-        if frequency_penalty != 0:
-            payload["frequency_penalty"] = frequency_penalty
-        if logit_bias:
-            payload["logit_bias"] = logit_bias
-        if logprobs:
-            payload["logprobs"] = logprobs
-        if max_tokens != 0:
-            payload["max_tokens"] = max_tokens
-        if n != 0:
-            payload["n"] = n
-        if presence_penalty != 0:
-            payload["presence_penalty"] = presence_penalty
-        if response_format is not None:
-            payload["response_format"] = response_format
-        if seed != 0:
-            payload["seed"] = seed
-        if stop:
-            payload["stop"] = stop
-        if stream:
-            payload["stream"] = stream
-        if stream_options is not None:
-            payload["stream_options"] = stream_options
-        if temperature != 0:
-            payload["temperature"] = temperature
-        if top_logprobs != 0:
-            payload["top_logprobs"] = top_logprobs
-        if top_p != 0:
-            payload["top_p"] = top_p
-        if user:
-            payload["user"] = user
-
-        # Include tools if configured
-        if len(self.tools) > 0:
-            payload["tools"] = self.tools
-            payload["tool_choice"] = tool_choice
+        payload = ChatCompletionRequest(
+            messages=messages,
+            model=self.model,
+            frequency_penalty=frequency_penalty,
+            logit_bias=logit_bias,
+            logprobs=logprobs,
+            max_tokens=max_tokens,
+            n=n,
+            presence_penalty=presence_penalty,
+            response_format=response_format,
+            seed=seed,
+            stop=stop,
+            stream=stream,
+            stream_options=stream_options,
+            temperature=temperature,
+            tools=self.tools,
+            tool_choice=tool_choice,
+            top_logprobs=top_logprobs,
+            top_p=top_p,
+            user=user,
+        ).__dict__
 
         # Make API call
         response_data = self._make_api_call(payload)
@@ -173,16 +157,60 @@ class XAI:
                             arguments = json.loads(tool_call["function"]["arguments"])
                             result = self.function_map[function_name](**arguments)
                             tool_results.append(
-                                {
-                                    "tool_call_id": tool_call["id"],
-                                    "role": "tool",
-                                    "name": function_name,
-                                    "content": str(result),
-                                }
+                                ToolResult(
+                                    tool_call_id=tool_call["id"],
+                                    role="tool",
+                                    name=function_name,
+                                    content=str(result),
+                                )
                             )
 
                 # Add tool results to the message if any were generated
                 if tool_results:
                     message["tool_results"] = tool_results
 
-        return response_data["choices"][0]
+        # Convert response to ChatCompletionResponse
+        response = ChatCompletionResponse(
+            id=response_data["id"],
+            choices=[
+                Choice(
+                    index=choice["index"] if "index" in choice else 0,
+                    message=Message(
+                        role=choice["message"]["role"],
+                        content=choice["message"]["content"],
+                        tool_calls=(
+                            [
+                                ToolCall(
+                                    id=tc["id"],
+                                    type=tc["type"],
+                                    function=Function(
+                                        name=tc["function"]["name"],
+                                        arguments=json.loads(
+                                            tc["function"]["arguments"]
+                                        ),
+                                    ),
+                                )
+                                for tc in choice["message"].get("tool_calls", []) or []
+                            ]
+                            if "tool_calls" in choice["message"]
+                            else None
+                        ),
+                        tool_results=(
+                            tool_results
+                            if "tool_results" in choice["message"]
+                            else None
+                        ),
+                    ),
+                    finish_reason=choice["finish_reason"],
+                    logprobs=choice["logprobs"] if "logprobs" in choice else None,
+                )
+                for choice in response_data["choices"]
+            ],
+            created=response_data["created"],
+            model=response_data["model"],
+            object=response_data["object"],
+            system_fingerprint=response_data["system_fingerprint"],
+            usage=Usage(**response_data["usage"]) if "usage" in response_data else None,
+        )
+
+        return response
