@@ -114,7 +114,6 @@ class XAI:
         payload = {
             "model": self.model,
             "messages": messages,
-            "tool_choice": tool_choice, 
         }
 
         # Add optional parameters if they differ from defaults
@@ -152,7 +151,7 @@ class XAI:
         # Include tools if configured
         if len(self.tools) > 0:
             payload["tools"] = self.tools
-
+            payload["tool_choice"] = tool_choice
 
         # Make API call
         response_data = self._make_api_call(payload)
