@@ -65,24 +65,7 @@ print(response_message)
 
 ### Optional Parameters
 
-The `invoke` method supports the following optional parameters:
-
-- `frequency_penalty` (float, default=0): Penalty for token frequency
-- `logit_bias` (Dict[str, float], default=None): Token bias dictionary
-- `logprobs` (bool, default=False): Whether to return log probabilities
-- `max_tokens` (int, default=0): Maximum number of tokens to generate
-- `n` (int, default=0): Number of completions to generate
-- `presence_penalty` (float, default=0): Penalty for token presence
-- `response_format` (Dict[str, str], default=None): Format of the response
-- `seed` (int, default=0): Random seed for reproducibility
-- `stop` (Union[str, List[str]], default=None): Stop sequences
-- `stream` (bool, default=False): Whether to stream the response
-- `stream_options` (Dict[str, Any], default=None): Options for streaming
-- `temperature` (float, default=0): Sampling temperature
-- `tool_choice` (Union[str, Dict[str, Any]], default=None): Function calling mode ('auto', 'required', 'none', or specific function)
-- `top_logprobs` (int, default=0): Number of top log probabilities to return
-- `top_p` (float, default=0): Top-p sampling parameter
-- `user` (str, default=""): End-user identifier
+The `invoke` method supports various optional parameters to customize the model's behavior. Some commonly used parameters include `max_tokens` to limit response length, `tool_choice` to control function calling behavior ('auto', 'required', 'none'), and others. For a complete list of optional parameters and their descriptions, see the [API Reference](#api-reference) section.
 
 ## Function Calling
 
@@ -208,6 +191,27 @@ def invoke(
     user: Optional[str] = None
 ) -> ChatCompletionResponse
 ```
+
+#### Invoke Method Optional Parameters
+
+The `invoke` method supports the following optional parameters:
+
+- `frequency_penalty` (float, default=0): Penalty for token frequency. Higher values decrease the model's likelihood to repeat the same information.
+- `logit_bias` (Dict[str, float], default=None): Token bias dictionary to influence token selection.
+- `logprobs` (bool, default=False): Whether to return log probabilities of the output tokens.
+- `max_tokens` (int, default=0): Maximum number of tokens to generate in the response.
+- `n` (int, default=0): Number of chat completion choices to generate.
+- `presence_penalty` (float, default=0): Penalty for token presence. Higher values increase the model's likelihood to talk about new topics.
+- `response_format` (Dict[str, str], default=None): Format specification for the response output.
+- `seed` (int, default=0): Random seed for deterministic outputs.
+- `stop` (Union[str, List[str]], default=None): Sequences where the model should stop generating.
+- `stream` (bool, default=False): Whether to stream the response tokens as they're generated.
+- `stream_options` (Dict[str, Any], default=None): Additional options for streaming responses.
+- `temperature` (float, default=0): Sampling temperature. Higher values make output more random.
+- `tool_choice` (Union[str, Dict[str, Any]], default=None): Function calling mode ('auto', 'required', 'none', or specific function).
+- `top_logprobs` (int, default=0): Number of most likely tokens to return probabilities for.
+- `top_p` (float, default=0): Top-p sampling parameter. Lower values make output more focused.
+- `user` (str, default=""): End-user identifier for monitoring and rate limiting.
 
 ### Response Models
 
