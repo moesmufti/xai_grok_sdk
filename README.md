@@ -1,6 +1,6 @@
 # xAI Grok SDK
 
-A lightweight Python SDK for interacting with the x.AI API, designed with minimal dependencies. All you need is your xAI API key and the model you want to use.
+A lightweight Python SDK for interacting with the xAI API, designed with minimal dependencies. All you need is your xAI API key and the model you want to use.
 
 You can get your API key [here](https://console.x.ai/). Currently, they provide $25 free credits for new users for December 2024!
 
@@ -12,8 +12,8 @@ pip install xai-grok-sdk
 
 ## Features
 
-- Simple and intuitive interface for x.AI API interactions
-- Support for chat completions with the latest x.AI models
+- Simple and intuitive interface for xAI API interactions
+- Support for chat completions with the latest xAI models
 - Built-in function calling capabilities with support for auto, required, and none modes
 - Minimal dependencies (only requires `requests`)
 - Secure API key handling
@@ -163,7 +163,7 @@ When using function calling, you need to provide:
 
 Initialize the XAI client.
 
-- `api_key`: Your x.AI API key
+- `api_key`: Your xAI API key
 - `model`: The model to use for chat completions
 - `tools`: Optional list of tools available for the model to use
 - `function_map`: Optional dictionary mapping function names to their implementations
