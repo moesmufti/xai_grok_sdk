@@ -151,6 +151,50 @@ The `function_map` optional parameter maps tool names to their Python implementa
 
 > **Note**: The `function_map` parameter is not required when tools are provided. However, when omitted, only the tool call with the parameters used by the model will be included in the response.
 
+## Structured JSON Output
+
+The SDK supports structured JSON output through the `response_format` parameter. This allows you to enforce a specific JSON schema for the model's responses, making them more predictable and easier to parse.
+
+Here's an example:
+
+```python
+from xai_grok_sdk import XAI
+
+llm = XAI(
+    api_key=api_key,
+    model="grok-2-1212",
+)
+
+# Request with structured JSON output
+response = llm.invoke(
+    messages=[
+        {"role": "user", "content": "What is the weather in San Francisco?"},
+    ],
+    tool_choice="none",
+    response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "weather_response",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string"},
+                    "weather": {"type": "string"},
+                },
+                "required": ["location", "weather"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+    },
+)
+
+response_message = response.choices[0].message
+print(response_message)
+```
+
+The response will be a JSON object that strictly follows the defined schema. For more advanced schema options, including Pydantic types and formats, refer to the [xAI API documentation on structured outputs](https://docs.x.ai/docs/guides/structured-outputs).
+
 ## API Reference
 
 ### XAI Class
