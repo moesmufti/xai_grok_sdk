@@ -15,6 +15,7 @@ pip install xai-grok-sdk
 - Simple and intuitive interface for xAI API interactions
 - Support for chat completions with the latest xAI models
 - Built-in function calling capabilities with support for auto, required, and none modes
+- Streaming support for real-time responses
 - Minimal dependencies (only requires `requests`)
 - Secure API key handling
 - Customizable base URL for API endpoints
@@ -50,6 +51,43 @@ print(response_message)
 # Response: Message(role='assistant', content="Hello! I can help you with a wide range of tasks and questions. Whether you need assistance with information, problem-solving, learning something new, or just want to have a conversation, I'm here to help. What specifically would you like assistance with today?", tool_calls=None, tool_results=None, refusal=None)
 ```
 
+### Streaming Support
+
+The SDK supports streaming responses for real-time output. Here's how to use it:
+
+```python
+from xai_grok_sdk import XAI
+
+# Initialize the client (do not provide tools when using streaming)
+llm = XAI(
+    api_key="your_api_key",
+    model="grok-2-1212"
+)
+
+# Make a streaming request
+response = llm.invoke(
+    messages=[
+        {"role": "user", "content": "Tell me a story about a brave astronaut."}
+    ],
+    stream=True
+)
+
+# Process the streaming response
+for chunk in response:
+    if chunk.choices[0].delta and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+print()  # New line at the end
+```
+
+> **Important Streaming Notes**:
+>
+> - Streaming mode currently does not support response formats or tool calling. These features are only available in non-streaming mode.
+> - When using streaming:
+>   - Do not provide tools during XAI initialization
+>   - Set `tool_choice="none"` in the invoke call, or omit it entirely
+>   - The response will be a generator yielding chunks with `delta` content
+>   - Each chunk follows the same structure as a normal response, but uses the `delta` field instead of `message`
+
 ## Parameters
 
 ### Required Parameters
@@ -67,7 +105,7 @@ print(response_message)
 
 The `invoke` method supports various optional parameters to customize the model's behavior. Some commonly used parameters include `max_tokens` to limit response length, `tool_choice` to control function calling behavior ('auto', 'required', 'none'), and others. For a complete list of optional parameters and their descriptions, see the [API Reference](#api-reference) section.
 
-## Function Calling
+## Function (Tool) Calling
 
 The SDK supports function calling through tools and function implementations. When using function calling, you need to provide both the tool definitions and their implementations through the `function_map` parameter.
 
@@ -205,7 +243,7 @@ The main class for interacting with the xAI API.
 
 - `api_key` (str, required): Your xAI API key
 - `model` (ModelType, required): Model to use ("grok-2-1212" or "grok-beta")
-- `tools` (List[Dict[str, Any]], optional): List of available tools
+- `tools` (List[Dict[str, Any]], optional): List of available tools (should not be provided if stream is set to True upon invoking the model)
 - `function_map` (Dict[str, Callable], optional): Map of function names to implementations
 
 #### Methods
@@ -218,30 +256,35 @@ Makes a chat completion request to the xAI API.
 def invoke(
     messages: List[Dict[str, Any]], # REQUIRED
     frequency_penalty: Optional[float] = None,  # Range: -2.0 to 2.0
-    logit_bias: Optional[Dict[str, float]] = None,
+    logit_bias: Optional[Dict[Any, Any]] = None,
     logprobs: Optional[bool] = None,
     max_tokens: Optional[int] = None,
     n: Optional[int] = None,
     presence_penalty: Optional[float] = None,  # Range: -2.0 to 2.0
-    response_format: Optional[Any] = None,
+    response_format: Optional[Any] = None,  # Not supported in streaming mode
     seed: Optional[int] = None,
-    stop: Optional[List[str]] = None,
-    stream: Optional[bool] = None,
+    stop: Optional[List[Any]] = None,
+    stream: Optional[bool] = None,  # Set to True for streaming responses
     stream_options: Optional[Any] = None,
     temperature: Optional[float] = None,  # Range: 0 to 2
-    tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = None, # "auto", "required", "none", or specific function. Should not be provided if stream is set to True (or set to "none")
     top_logprobs: Optional[int] = None,  # Range: 0 to 20
     top_p: Optional[float] = None,  # Range: 0 to 1
     user: Optional[str] = None
-) -> ChatCompletionResponse
+) -> Union[ChatCompletionResponse, Generator[ChatCompletionResponse, None, None]]
 ```
+
+Returns either:
+
+- A `ChatCompletionResponse` for normal requests
+- A generator yielding `ChatCompletionResponse` objects for streaming requests, where each chunk contains delta content
 
 #### Invoke Method Optional Parameters
 
 The `invoke` method supports the following optional parameters:
 
 - `frequency_penalty` (float, default=0): Penalty for token frequency. Higher values decrease the model's likelihood to repeat the same information.
-- `logit_bias` (Dict[str, float], default=None): Token bias dictionary to influence token selection.
+- `logit_bias` (Dict[Any, Any], default=None): Token bias dictionary to influence token selection.
 - `logprobs` (bool, default=False): Whether to return log probabilities of the output tokens.
 - `max_tokens` (int, default=0): Maximum number of tokens to generate in the response.
 - `n` (int, default=0): Number of chat completion choices to generate.
@@ -260,6 +303,32 @@ The `invoke` method supports the following optional parameters:
 ### Response Models
 
 The SDK uses several dataclasses to represent the API response structure:
+
+#### ChatCompletionResponse
+
+```python
+@dataclass
+class ChatCompletionResponse:
+    id: str                                  # Unique identifier for the completion
+    choices: List[Choice]                    # List of completion choices
+    created: Optional[int] = None            # Unix timestamp of creation
+    model: Optional[str] = None              # Model used for completion
+    object: Optional[str] = None             # Object type, typically "chat.completion"
+    system_fingerprint: Optional[str] = None # System fingerprint for the response
+    usage: Optional[Usage] = None            # Token usage statistics
+```
+
+#### Choice
+
+```python
+@dataclass
+class Choice:
+    index: int                              # Index of the choice
+    message: Optional[Message] = None        # Message content for non-streaming responses
+    delta: Optional[Message] = None          # Delta content for streaming responses
+    finish_reason: Optional[str] = None      # Reason for completion
+    logprobs: Optional[Dict[str, Any]] = None # Log probabilities if requested
+```
 
 #### Message
 
@@ -309,35 +378,6 @@ class ToolResult:
     role: str          # Role (typically "tool")
     name: str          # Name of the tool
     content: Any       # Result content from the tool execution
-```
-
-#### ChatCompletionResponse
-
-The main response object returned by the `invoke` method.
-
-```python
-@dataclass
-class ChatCompletionResponse:
-    id: str                    # Unique identifier for the completion
-    choices: List[Choice]      # List of completion choices
-    created: int              # Unix timestamp of creation
-    model: str                # Model used for completion
-    object: str               # Object type ("chat.completion")
-    system_fingerprint: str   # System fingerprint
-    usage: Optional[Usage]    # Token usage statistics
-```
-
-#### Choice
-
-Represents a single completion choice in the response.
-
-```python
-@dataclass
-class Choice:
-    index: int                # Index of this choice
-    message: Message          # The generated message
-    finish_reason: Optional[str]  # Why the model stopped generating
-    logprobs: Optional[Dict[str, Any]]  # Log probabilities if requested
 ```
 
 #### Usage
