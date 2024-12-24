@@ -118,8 +118,9 @@ class Choice:
     """Represents a single completion choice in the API response."""
 
     index: int
-    message: Message
-    finish_reason: Optional[str]
+    message: Optional[Message] = None
+    delta: Optional[Message] = None
+    finish_reason: Optional[str] = None
     logprobs: Optional[Dict[str, Any]] = None
 
 
@@ -127,10 +128,10 @@ class Choice:
 class ChatCompletionResponse:
     """Response structure for chat completions API."""
 
-    id: str  # Unique identifier for the completion
-    choices: List[Choice]  # List of completion choices
-    created: int  # Unix timestamp of creation
-    model: str  # Model used for completion
-    object: str  # Object type, typically "chat.completion"
-    system_fingerprint: str  # System fingerprint for the response
-    usage: Optional[Usage]  # Token usage statistics
+    id: str
+    choices: List[Choice]
+    created: Optional[int] = None
+    model: Optional[str] = None
+    object: Optional[str] = None
+    system_fingerprint: Optional[str] = None
+    usage: Optional[Usage] = None

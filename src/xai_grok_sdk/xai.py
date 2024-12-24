@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import List, Dict, Any, Optional, Callable, Union
+from typing import List, Dict, Any, Optional, Callable, Union, Generator
 from xai_grok_sdk.models import (
     ModelType,
     ChatCompletionRequest,
@@ -57,23 +57,75 @@ class XAI:
                         )
                     self.function_map[func_name] = function_map[func_name]
 
-    def _make_api_call(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _make_api_call(
+        self, payload: Dict[str, Any]
+    ) -> Union[Dict[str, Any], requests.Response]:
         """Make an API call to XAI."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
         response = requests.post(
-            f"{self.base_url}/chat/completions", headers=headers, json=payload
+            f"{self.base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            stream=payload.get("stream", False),
         )
         response.raise_for_status()
+
+        if payload.get("stream", False):
+            return response
         return response.json()
+
+    def _process_stream_response(
+        self, response: requests.Response
+    ) -> Generator[ChatCompletionResponse, None, None]:
+        """Process a streaming response from the API."""
+        for line in response.iter_lines():
+            if not line:
+                continue
+
+            # Remove 'data: ' prefix
+            line = line.decode("utf-8")
+            if not line.startswith("data: "):
+                continue
+
+            line = line[6:]  # Remove 'data: ' prefix
+
+            if line == "[DONE]":
+                break
+
+            try:
+                chunk = json.loads(line)
+                # Convert chunk to ChatCompletionResponse
+                yield ChatCompletionResponse(
+                    id=chunk["id"],
+                    choices=[
+                        Choice(
+                            index=choice["index"],
+                            delta=(
+                                Message(
+                                    role=choice["delta"].get("role"),
+                                    content=choice["delta"].get("content", ""),
+                                )
+                                if "delta" in choice
+                                else None
+                            ),
+                            message=None,
+                        )
+                        for choice in chunk["choices"]
+                    ],
+                    usage=Usage(**chunk["usage"]) if "usage" in chunk else None,
+                    system_fingerprint=chunk.get("system_fingerprint"),
+                )
+            except json.JSONDecodeError:
+                continue
 
     def invoke(
         self,
         messages: List[Dict[str, Any]],
         frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[Dict[int, float]] = None,
+        logit_bias: Optional[Dict[Any, Any]] = None,
         logprobs: Optional[bool] = None,
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
@@ -88,7 +140,7 @@ class XAI:
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
         user: Optional[str] = None,
-    ) -> ChatCompletionResponse:
+    ) -> Union[ChatCompletionResponse, Generator[ChatCompletionResponse, None, None]]:
         """
         Run a conversation with the model.
 
@@ -139,6 +191,9 @@ class XAI:
 
         # Make API call
         response_data = self._make_api_call(payload)
+
+        if stream:
+            return self._process_stream_response(response_data)
 
         # Handle tool calls if present
         if "choices" in response_data and len(response_data["choices"]) > 0:
