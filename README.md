@@ -28,6 +28,13 @@ Currently, the following text-only models are supported:
 - `grok-2-1212`
 - `grok-beta`
 
+## Roadmap
+
+The following features are planned for future releases:
+
+- **Multimodal Support**: Adding support for image and other media types as xAI releases multimodal capabilities for their models
+- **Streaming Tool Call Support**: Enhancing the streaming functionality to support real-time tool/function calling responses
+
 ## Quick Start
 
 ```python
