@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xai-grok-sdk"
-version = "0.0.11"
+version = "0.0.12"
 description = "Lightweight xAI SDK with minimal dependencies"
 dependencies = [
     "requests>=2.32.3",
