@@ -1,5 +1,7 @@
 # xAI Grok SDK
 
+NOT ACTIVELY MAINTAINED. 
+
 A lightweight Python SDK for interacting with the xAI API, designed with minimal dependencies. All you need is your xAI API key and the model you want to use.
 
 You can get your API key [here](https://console.x.ai/). Currently, they provide $25 free credits for new users for December 2024!
